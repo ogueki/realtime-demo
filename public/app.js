@@ -21,7 +21,17 @@ const WARN_BEFORE_MS = 10_000;        // 残り10秒で警告
 let sessionTimeout, warnTimeout, countdownInterval, sessionStartedAt;
 // ====================
 
-voiceSelect.onchange = () => { currentVoice = voiceSelect.value; };
+voiceSelect.onchange = () => {
+  currentVoice = voiceSelect.value;
+  // すでに接続済みならデフォルトも即切り替え
+  if (dataChannel && dataChannel.readyState === "open") {
+    dataChannel.send(JSON.stringify({
+      type: "session.update",
+      session: { voice: currentVoice }
+    }));
+    log(`default voice -> ${currentVoice}`);
+  }
+};
 
 function log(...args) {
   const s = args.map(a => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
@@ -83,6 +93,11 @@ async function createPeerConnection(clientToken) {
   await pc.setRemoteDescription({ type: "answer", sdp: answerSDP });
 
   dataChannel.onopen = () => {
+    dataChannel.send(JSON.stringify({
+      type: "session.update",
+      session: { voice: currentVoice }
+    }));
+
     // 初回はテキストのみ（静かに起動）
     dataChannel.send(JSON.stringify({
       type: "response.create",
