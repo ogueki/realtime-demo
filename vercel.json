@@ -1,7 +1,8 @@
 {
+  "buildCommand": "",
+  "outputDirectory": "public",
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/", "destination": "/public/index.html" },
-    { "source": "/app.js", "destination": "/public/app.js" }
+    { "source": "/", "destination": "/index.html" }
   ]
 }
