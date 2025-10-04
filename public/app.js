@@ -1,3 +1,4 @@
+// public/app.js
 const btnConnect = document.getElementById("btnConnect");
 const btnDisconnect = document.getElementById("btnDisconnect");
 const btnMute = document.getElementById("btnMute");
@@ -14,7 +15,7 @@ let micTrack;
 let dataChannel;
 let isMuted = false;
 let currentVoice = "alloy";
-let sender; // PTTなどで使う
+let sender;
 
 voiceSelect.onchange = () => { currentVoice = voiceSelect.value; };
 
@@ -24,22 +25,35 @@ function log(...args) {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
+async function fetchSessionToken() {
+  // Vercel本番のみを想定：同一オリジンで /api/session を叩く
+  const res = await fetch("/api/session", { method: "POST" });
+  const ct = res.headers.get("content-type") || "";
+  const body = ct.includes("application/json") ? await res.json()
+                                               : { error: await res.text() };
+  if (!res.ok) throw new Error(body.error || "session error");
+  const token = body?.client_secret?.value;
+  if (!token) throw new Error("no client token");
+  return token;
+}
+
 async function createPeerConnection(clientToken) {
   pc = new RTCPeerConnection();
 
-  // リモート音声
+  // 受信音声
   const inboundStream = new MediaStream();
   pc.ontrack = (e) => {
     inboundStream.addTrack(e.track);
     remoteAudio.srcObject = inboundStream;
   };
 
-  // マイク音声取得
+  // マイク取得＆送信
   micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
   micTrack = micStream.getAudioTracks()[0];
   sender = pc.addTrack(micTrack, micStream);
+  pc.addTransceiver("audio", { direction: "sendrecv" });
 
-  // テキスト通信用チャネル
+  // データチャネル（テキストイベント用）
   dataChannel = pc.createDataChannel("oai-events");
   dataChannel.onmessage = (e) => {
     try {
@@ -47,22 +61,18 @@ async function createPeerConnection(clientToken) {
       if (msg.type === "transcript.delta") {
         youText.textContent = msg.delta;
       }
-      if (msg.type === "response.delta" || msg.type === "response.output_text.delta") {
+      if (msg.type === "response.output_text.delta" || msg.type === "response.delta") {
         botText.textContent += msg.delta;
       }
-      if (msg.type === "response.completed") {
-        log("response completed");
-      }
-    } catch {}
+      if (msg.type === "response.completed") log("response completed");
+    } catch {/* バイナリ等は無視 */}
   };
 
-  pc.addTransceiver("audio", { direction: "sendrecv" });
-
+  // SDP交換
   const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: false });
   await pc.setLocalDescription(offer);
 
-  // ★ ここが修正ポイント（fetch("/session") に統一）
-  const r = await fetch("/session", {
+  const r = await fetch("https://api.openai.com/v1/realtime?model=gpt-realtime", {
     method: "POST",
     body: offer.sdp,
     headers: {
@@ -75,6 +85,7 @@ async function createPeerConnection(clientToken) {
   await pc.setRemoteDescription({ type: "answer", sdp: answerSDP });
 
   dataChannel.onopen = () => {
+    // 初期はテキストのみ（静かに起動）
     dataChannel.send(JSON.stringify({
       type: "response.create",
       response: {
@@ -88,15 +99,7 @@ async function createPeerConnection(clientToken) {
 
 async function connect() {
   try {
-    // トークン取得
-    const tokenRes = await fetch("/session", { method: "POST" }); // ←ローカルExpress用
-    const ct = tokenRes.headers.get("content-type") || "";
-    const body = ct.includes("application/json") ? await tokenRes.json() : { error: await tokenRes.text() };
-
-    if (!tokenRes.ok) throw new Error(body.error || "session error");
-    const clientToken = body?.client_secret?.value;
-    if (!clientToken) throw new Error("no client token");
-
+    const clientToken = await fetchSessionToken();
     await createPeerConnection(clientToken);
 
     btnConnect.disabled = true;
@@ -134,7 +137,7 @@ function toggleMute() {
   btnMute.textContent = isMuted ? "ミュート解除" : "ミュート";
 }
 
-// 音声確認用
+// 音声確認（選択中ボイスで短く発話）
 function speakBriefly(inst = "いま選択されている声で、1〜2文だけ挨拶してください。") {
   if (dataChannel?.readyState !== "open") return;
   dataChannel.send(JSON.stringify({

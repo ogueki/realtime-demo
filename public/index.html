@@ -3,18 +3,19 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>OpenAI Realtime Demo (WebRTC)</title>
+  <title>OpenAI Realtime Demo (Vercel)</title>
   <style>
-    body { font-family: system-ui, sans-serif; margin: 24px; }
-    button { padding: 10px 16px; border-radius: 10px; border: none; margin-right: 8px; }
-    #log { white-space: pre-wrap; background: #f6f6f6; padding: 12px; border-radius: 8px; height: 200px; overflow:auto; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; }
+    button { padding: 10px 16px; border-radius: 10px; border: none; margin-right: 8px; cursor: pointer; }
+    button:disabled { opacity: 0.5; cursor: default; }
+    select { padding: 8px 10px; border-radius: 8px; }
     .row { margin: 12px 0; }
-    label { font-size: 14px; }
-    select { padding: 6px 10px; border-radius: 8px; }
+    #log { white-space: pre-wrap; background: #f6f6f6; padding: 12px; border-radius: 8px; height: 220px; overflow:auto; }
   </style>
 </head>
 <body>
-  <h1>OpenAI Realtime API デモ</h1>
+  <h1>OpenAI Realtime API デモ（Vercel専用）</h1>
+
   <div class="row">
     <button id="btnConnect">接続開始</button>
     <button id="btnDisconnect" disabled>切断</button>
@@ -30,22 +31,16 @@
     <button id="btnSpeak" disabled>いまの声で話して</button>
   </div>
 
-  <div class="row">
-    <strong>あなた：</strong> <span id="youText">（話しかけてください）</span>
-  </div>
-  <div class="row">
-    <strong>アシスタント：</strong> <span id="botText">（応答が出ます）</span>
-  </div>
+  <div class="row"><strong>あなた：</strong> <span id="youText">（話しかけてください）</span></div>
+  <div class="row"><strong>アシスタント：</strong> <span id="botText">（応答が出ます）</span></div>
 
-  <div class="row">
-    <audio id="remoteAudio" autoplay></audio>
-  </div>
+  <div class="row"><audio id="remoteAudio" autoplay></audio></div>
 
   <div class="row">
     <h3>ログ</h3>
     <div id="log"></div>
   </div>
 
-  <script src="./app.js"></script>
+  <script src="/app.js"></script>
 </body>
 </html>
