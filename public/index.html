@@ -24,12 +24,14 @@
     <label style="margin-left:12px">
       Voice:
       <select id="voiceSelect">
-        <option value="alloy">alloy（クリア）</option>
-        <option value="ballad">ballad（温かめ）</option>
+        <option value="cedar">Cedar（自然で落ち着いた）</option>
+        <option value="marin">Marin（柔らかく表現豊か）</option>
       </select>
     </label>
     <button id="btnSpeak" disabled>いまの声で話して</button>
   </div>
+
+  <div class="row"><strong>セッション残り:</strong> <span id="timerText"></span></div>
 
   <div class="row"><strong>あなた：</strong> <span id="youText">（話しかけてください）</span></div>
   <div class="row"><strong>アシスタント：</strong> <span id="botText">（応答が出ます）</span></div>
@@ -37,7 +39,6 @@
   <div class="row"><audio id="remoteAudio" autoplay></audio></div>
 
   <div class="row">
-    <div class="row"><strong>セッション残り:</strong> <span id="timerText"></span></div>
     <h3>ログ</h3>
     <div id="log"></div>
   </div>
