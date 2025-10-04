@@ -9,6 +9,9 @@ const youText = document.getElementById("youText");
 const botText = document.getElementById("botText");
 const logEl = document.getElementById("log");
 
+// （あれば）残り時間の表示 <span id="timerText"></span>
+const timerText = document.getElementById("timerText");
+
 let pc;
 let micStream;
 let micTrack;
@@ -16,6 +19,16 @@ let dataChannel;
 let isMuted = false;
 let currentVoice = "alloy";
 let sender;
+
+// === ここから：自動切断の設定 ===
+const MAX_SESSION_MS = 60_000;   // 60秒で強制切断
+const WARN_BEFORE_MS = 10_000;   // 残り10秒で警告
+let sessionTimeout;              // 強制切断タイマー
+let warnTimeout;                 // 警告タイマー
+let countdownInterval;           // 表示更新
+let sessionStartedAt = 0;        // 接続時刻
+let isDisconnecting = false;     // 二重実行防止
+// === ここまで：自動切断の設定 ===
 
 voiceSelect.onchange = () => { currentVoice = voiceSelect.value; };
 
@@ -53,7 +66,7 @@ async function createPeerConnection(clientToken) {
   sender = pc.addTrack(micTrack, micStream);
   pc.addTransceiver("audio", { direction: "sendrecv" });
 
-  // データチャネル（テキストイベント用）
+  // テキスト通信用データチャネル
   dataChannel = pc.createDataChannel("oai-events");
   dataChannel.onmessage = (e) => {
     try {
@@ -109,25 +122,18 @@ async function connect() {
     botText.textContent = "";
     youText.textContent = "（話しかけてください）";
     log("connected");
+
+    // === 自動切断タイマー起動 ===
+    startSessionTimer();
+    // ===========================
   } catch (e) {
     log("connect error:", e.message || e);
   }
 }
 
 function disconnect() {
-  try {
-    if (dataChannel?.readyState === "open") {
-      dataChannel.send(JSON.stringify({ type: "response.cancel" }));
-      dataChannel.close();
-    }
-  } catch {}
-  try { if (micStream) micStream.getTracks().forEach(t => t.stop()); } catch {}
-  try { if (pc) pc.close(); } catch {}
-  btnConnect.disabled = false;
-  btnDisconnect.disabled = true;
-  btnMute.disabled = true;
-  btnSpeak.disabled = true;
-  log("disconnected");
+  // 通常の手動切断（強制切断からも呼ばれる）
+  cleanupSession("disconnected");
 }
 
 function toggleMute() {
@@ -150,7 +156,78 @@ function speakBriefly(inst = "いま選択されている声で、1〜2文だけ
   }));
 }
 
+// ===== 自動切断まわり =====
+function startSessionTimer() {
+  clearSessionTimer();
+  isDisconnecting = false;
+  sessionStartedAt = Date.now();
+
+  // 1) 強制切断（60秒）
+  sessionTimeout = setTimeout(() => {
+    forceDisconnect("Auto-disconnect: 60s reached");
+  }, MAX_SESSION_MS);
+
+  // 2) 残り10秒警告
+  warnTimeout = setTimeout(() => {
+    log("⚠️ Auto-disconnect in 10s");
+  }, Math.max(0, MAX_SESSION_MS - WARN_BEFORE_MS));
+
+  // 3) カウントダウン表示（任意の #timerText があれば更新）
+  countdownInterval = setInterval(() => {
+    const remain = Math.max(0, MAX_SESSION_MS - (Date.now() - sessionStartedAt));
+    if (timerText) timerText.textContent = `残り ${Math.ceil(remain / 1000)} 秒`;
+    if (remain <= 0) clearInterval(countdownInterval);
+  }, 250);
+}
+
+function clearSessionTimer() {
+  if (sessionTimeout) clearTimeout(sessionTimeout);
+  if (warnTimeout) clearTimeout(warnTimeout);
+  if (countdownInterval) clearInterval(countdownInterval);
+  sessionTimeout = warnTimeout = countdownInterval = null;
+  if (timerText) timerText.textContent = "";
+}
+
+function forceDisconnect(reason = "Auto-disconnect") {
+  if (isDisconnecting) return;
+  isDisconnecting = true;
+
+  try {
+    // 進行中の生成を確実に打ち切る
+    if (dataChannel?.readyState === "open") {
+      dataChannel.send(JSON.stringify({ type: "response.cancel" }));
+    }
+  } catch {}
+  log(reason);
+  cleanupSession("auto-disconnected");
+}
+
+function cleanupSession(label = "disconnected") {
+  clearSessionTimer();
+
+  try { if (dataChannel?.readyState === "open") dataChannel.close(); } catch {}
+  try { if (micStream) micStream.getTracks().forEach(t => t.stop()); } catch {}
+  try { if (pc) pc.close(); } catch {}
+
+  btnConnect.disabled = false;
+  btnDisconnect.disabled = true;
+  btnMute.disabled = true;
+  btnSpeak.disabled = true;
+
+  log(label);
+}
+// =========================
+
 btnConnect.onclick = connect;
 btnDisconnect.onclick = disconnect;
 btnMute.onclick = toggleMute;
 btnSpeak.onclick = () => speakBriefly();
+
+// タブを閉じる/離脱時も後始末（保険）
+window.addEventListener("beforeunload", () => {
+  try {
+    if (dataChannel?.readyState === "open") {
+      dataChannel.send(JSON.stringify({ type: "response.cancel" }));
+    }
+  } catch {}
+});
