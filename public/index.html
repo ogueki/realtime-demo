@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenAI Realtime Demo (WebRTC)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 24px; }
+    button { padding: 10px 16px; border-radius: 10px; border: none; margin-right: 8px; }
+    #log { white-space: pre-wrap; background: #f6f6f6; padding: 12px; border-radius: 8px; height: 200px; overflow:auto; }
+    .row { margin: 12px 0; }
+    label { font-size: 14px; }
+    select { padding: 6px 10px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>OpenAI Realtime API デモ</h1>
+  <div class="row">
+    <button id="btnConnect">接続開始</button>
+    <button id="btnDisconnect" disabled>切断</button>
+    <button id="btnMute" disabled>ミュート</button>
+
+    <label style="margin-left:12px">
+      Voice:
+      <select id="voiceSelect">
+        <option value="alloy">alloy（クリア）</option>
+        <option value="ballad">ballad（温かめ）</option>
+      </select>
+    </label>
+    <button id="btnSpeak" disabled>いまの声で話して</button>
+  </div>
+
+  <div class="row">
+    <strong>あなた：</strong> <span id="youText">（話しかけてください）</span>
+  </div>
+  <div class="row">
+    <strong>アシスタント：</strong> <span id="botText">（応答が出ます）</span>
+  </div>
+
+  <div class="row">
+    <audio id="remoteAudio" autoplay></audio>
+  </div>
+
+  <div class="row">
+    <h3>ログ</h3>
+    <div id="log"></div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
